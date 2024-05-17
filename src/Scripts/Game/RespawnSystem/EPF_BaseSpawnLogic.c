@@ -1,7 +1,3 @@
-class EPF_BaseRespawnSystemComponentClass : SCR_RespawnSystemComponentClass
-{
-}
-
 #ifdef WORKBENCH
 enum EPF_EPlayFromCameraHandling
 {
@@ -11,7 +7,8 @@ enum EPF_EPlayFromCameraHandling
 }
 #endif
 
-class EPF_BaseRespawnSystemComponent : SCR_RespawnSystemComponent
+[BaseContainerProps(category: "Respawn")]
+class EPF_BaseSpawnLogic: SCR_SpawnLogic
 {
 	#ifdef WORKBENCH
 	[Attribute(defvalue: EPF_EPlayFromCameraHandling.IGNORE.ToString(), uiwidget: UIWidgets.ComboBox, desc: "What should happen in the Workbench when play from camera is chosen?", enums: ParamEnumArray.FromEnum(EPF_EPlayFromCameraHandling))]
@@ -24,7 +21,9 @@ class EPF_BaseRespawnSystemComponent : SCR_RespawnSystemComponent
 
 	protected ref map<int, IEntity> m_mLoadingCharacters = new map<int, IEntity>();
 	protected PlayerManager m_pPlayerManager;
-
+	protected SCR_BaseGameMode m_pGameMode;
+	protected RplComponent m_pRplComponent;
+	
 	//------------------------------------------------------------------------------------------------
 	override void OnPlayerRegistered_S(int playerId)
 	{
@@ -44,7 +43,7 @@ class EPF_BaseRespawnSystemComponent : SCR_RespawnSystemComponent
 	//------------------------------------------------------------------------------------------------
 	override void OnPlayerKilled_S(int playerId, IEntity playerEntity, IEntity killerEntity, notnull Instigator killer)
 	{
-		//PrintFormat("EPF_BaseRespawnSystemComponent.OnPlayerKilled_S(%1, %2, %3)", playerId, playerEntity, killerEntity);
+		PrintFormat("EPF_BaseRespawnSystemComponent.OnPlayerKilled_S(%1, %2, %3)", playerId, playerEntity, killerEntity);
 
 		// Add the dead body root entity collection so it spawns back after restart for looting
 		EPF_PersistenceComponent persistence = EPF_Component<EPF_PersistenceComponent>.Find(playerEntity);
@@ -58,7 +57,7 @@ class EPF_BaseRespawnSystemComponent : SCR_RespawnSystemComponent
 
 		persistence.SetPersistentId(string.Empty); // Force generation of new id for dead body
 		persistence.OverrideSelfSpawn(true);
-
+		
 		// Fresh character spawn (NOTE: We need to push this to next frame due to a bug where on the same death frame we can not hand over a new char).
 		GetGame().GetCallqueue().Call(CreateCharacter, playerId, newId);
 	}
@@ -91,7 +90,7 @@ class EPF_BaseRespawnSystemComponent : SCR_RespawnSystemComponent
 	{
 		// Skip base impementation because of hard wired respawn system aspects we do not make us of.
 	}
-
+	
 	//------------------------------------------------------------------------------------------------
 	/*protected --Hotfix for 1.0 DO NOT CALL THIS MANUALLY*/
 	void WaitForUid(int playerId)
@@ -368,12 +367,12 @@ class EPF_BaseRespawnSystemComponent : SCR_RespawnSystemComponent
 		if (!isTransient)
 			persistence.Save(); // Transient chars should not have changes, since no handover
 	}
-
+	
 	//------------------------------------------------------------------------------------------------
-	override void OnInit(IEntity owner)
+	override void OnInit(SCR_RespawnSystemComponent owner)
 	{
-		m_pGameMode = SCR_BaseGameMode.Cast(owner);
-		m_pRplComponent = RplComponent.Cast(owner.FindComponent(RplComponent));
+		m_pGameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
+		m_pRplComponent = RplComponent.Cast(m_pGameMode.FindComponent(RplComponent));
 		m_pPlayerManager = GetGame().GetPlayerManager();
 
 		if (!m_pGameMode || !m_pRplComponent || !m_pPlayerManager)
